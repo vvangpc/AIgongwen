@@ -18,17 +18,17 @@ st.set_page_config(
 # ==========================================
 # 云端全局接口配置 (Secrets & Hardcode)
 # ==========================================
-# 自动安全读取：如果在本地，需要在 .streamlit/secrets.toml 中配置；如果在 Streamlit Cloud，需在页面设置 Secrets
+# 自动通过 st.secrets 安全读取所有核心接口配置
+# 在云端只需在 Advanced Settings -> Secrets 里随意修改这三个值，代码即可无缝切换模型与供应商！
 try:
-    api_key = st.secrets["ARK_API_KEY"]
+    api_key = st.secrets.get("ARK_API_KEY", "")
+    base_url = st.secrets.get("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+    model_name = st.secrets.get("ARK_MODEL_NAME", "ep-20260323114516-lmqzs")
 except Exception:
+    # 兜底：如果没配 secrets，采用默认初始值
     api_key = ""
-
-# 全局硬编码火山引擎方舟平台 Base URL
-base_url = "https://ark.cn-beijing.volces.com/api/v3"
-
-# 全局硬编码管理员预置的专属推理接入点 (Endpoint)
-model_name = "ep-20260323114516-lmqzs"
+    base_url = "https://ark.cn-beijing.volces.com/api/v3"
+    model_name = "ep-20260323114516-lmqzs"
 
 
 # ==========================================
