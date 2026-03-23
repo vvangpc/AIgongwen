@@ -10,10 +10,26 @@ import time
 # 页面基本配置
 # ==========================================
 st.set_page_config(
-    page_title="公文写作智能助手 v7.0",
+    page_title="公文写作智能助手 v8.0",
     page_icon="🤖",
     layout="wide"
 )
+
+# ==========================================
+# 云端全局接口配置 (Secrets & Hardcode)
+# ==========================================
+# 自动安全读取：如果在本地，需要在 .streamlit/secrets.toml 中配置；如果在 Streamlit Cloud，需在页面设置 Secrets
+try:
+    api_key = st.secrets["ARK_API_KEY"]
+except Exception:
+    api_key = ""
+
+# 全局硬编码火山引擎方舟平台 Base URL
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+
+# 全局硬编码管理员预置的专属推理接入点 (Endpoint)
+model_name = "ep-20260323114516-lmqzs"
+
 
 # ==========================================
 # 缓存与持久化状态初始化 (Session State & Local Storage)
@@ -40,7 +56,7 @@ def save_history(history_list):
 if "ai_suggestions" not in st.session_state:
     st.session_state.ai_suggestions = ""
 
-# 【修复 2】：初始化防刷新的最终结果缓存
+# 初始化防刷新的最终结果缓存
 if "final_fw" not in st.session_state:
     st.session_state.final_fw = ""
 if "final_pl" not in st.session_state:
@@ -51,15 +67,16 @@ if "history" not in st.session_state:
 
 # === 初始化全局 Agent 提示词 ===
 if "sys_writer_prompt" not in st.session_state:
-    st.session_state.sys_writer_prompt = "你是一位资深的省内政府机关‘笔杆子’。请根据用户需求，撰写结构严谨、用词规范、符合体制内行文习惯的公文框架。"
+    st.session_state.sys_writer_prompt = "你是一名深谙中国大陆党政机关行文规范的资深‘笔杆子’（如省委办公厅综合处业务骨干）。你的任务是根据用户的需求，构建一份逻辑严密、层次清晰、政治站位高的公文提纲。要求：1. 严格使用标准公文层级序数（一、；（一）；1.；（1））。2. 提纲需具备‘起承转合’，包括背景意义、总体要求、核心举措、保障机制等（视具体文种而定）。3. 标题要对仗工整，用词规范、威严、准确。4. 禁止输出废话，直接给出提纲。"
 if "sys_reviewer_prompt" not in st.session_state:
-    st.session_state.sys_reviewer_prompt = "你是一位严苛的公文审核处长。请找出前文中的逻辑漏洞、口气不符、以及不符合公文排版规范的地方，并给出明确修改建议。"
+    st.session_state.sys_reviewer_prompt = "你是一位极其严苛的机关审核处长，拥有20年公文把关经验。你需要对下属提交的公文框架进行‘挑刺’。审查标准：1. 政治方向是否有偏差或遗漏？2. 逻辑树是否符合MECE原则（不重不漏）？3. 举措是否过于空泛，缺乏落地抓手？4. 标题是否不够精炼有力？请直接列出致命缺陷和具体修改指令，语气要严厉、精炼，切忌替他重写全文。"
 if "sys_p_writer_prompt" not in st.session_state:
-    st.session_state.sys_p_writer_prompt = "你是负责修改公文的润色主笔分析师。认真阅读原稿，指出可以优化的方向（如词汇不够高级、语气不够得体、逻辑不连贯），详细列出建议条款清单。暂不需要直接重写全文。"
+    st.session_state.sys_p_writer_prompt = "你是机关政研室的公文润色主笔。请对用户提供的公文初稿进行深度诊断。你需要精准指出以下问题：1. 存在口语化、大白话表达的地方；2. 逻辑断层或转折生硬之处；3. 缺乏理论深度和高度的地方。请严格以清单形式（1. 2. 3.）列出详细的修改建议条款，建议需具体到某一段、某一句的词汇替换方向，暂不需要重写全文。"
 if "sys_p_reviewer_prompt" not in st.session_state:
-    st.session_state.sys_p_reviewer_prompt = "你是一位极度严苛的公文润色总监。审阅手下主笔提交的修改单，找出里面不够高级、或不符体制气韵的建议，给出严厉批示。"
+    st.session_state.sys_p_reviewer_prompt = "你是负责最终签批的秘书长。你需要审阅润色主笔提交的《修改建议清单》。请以宏观视野和高标准把关：1. 严厉驳回清单中无关痛痒、流于表面的修改；2. 指出清单中不够具有‘体制内气韵’的建议；3. 补充你认为必须拔高和深挖的核心修改意见。用词要高屋建瓴，一针见血，直指要害。"
 if "sys_polish_prompt" not in st.session_state:
-    st.session_state.sys_polish_prompt = "你是核心排版出稿大师。综合前文讨论及指令对初稿进行一次彻底重排与深度润色。只输出替换后的正文结果，不带废话。"
+    st.session_state.sys_polish_prompt = "你是公文排版与出稿校验大师。请严格按照用户确认的《修改最终指令》，对原始初稿进行彻底的重构与深度润色。要求：1. 坚决执行所有修改指令，极大提升词汇的公文属性（如适时使用‘压实责任’、‘统筹推进’、‘抓好落实’等体制内规范表述）。2. 确保全文行云流水，气势磅礴，逻辑严密。3. 绝对禁止输出任何解释性废话（如‘好的’、‘修改如下’），直接、且仅输出最终排版好的正文纯文本。"
+
 
 # ==========================================
 # 侧边栏配置区 (Sidebar)
@@ -73,29 +90,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    with st.expander("⚙️ 接口常规设置", expanded=False):
-        api_key = st.text_input("API Key 🔑", type="password", placeholder="请输入您的火山引擎 API Key")
-        
-        # 1. 修改为火山方舟（豆包）的 Base URL
-        base_url = st.text_input("Base URL 🌐", value="https://ark.cn-beijing.volces.com/api/v3")
-        
-        # 2. 将 text_input 改为 selectbox (下拉框)，并预置深度思考精选模型
-        model_options = [
-            "doubao-seed-2-0-lite-260215",  # 文档推荐的最新支持思考的豆包模型
-            "doubao-1-5-thinking-pro",      # 豆包 1.5 Pro 深度思考版
-            "deepseek-r1-250120",           # 火山方舟托管的满血深度思考 DeepSeek-R1
-            "自定义接入点(请在下方输入 ep- 开头的ID)" 
-        ]
-        
-        selected_model = st.selectbox("Model Name 🤖 (深度思考精选模型)", options=model_options, index=0)
-        
-        # 如果用户选择自定义接入点，弹出一个新的文本框让用户输入具体的 ep-xxxxx
-        if selected_model == "自定义接入点(请在下方输入 ep- 开头的ID)":
-            model_name = st.text_input("请输入火山引擎推理接入点 (Endpoint ID) 或 模型名：", placeholder="ep-...")
-        else:
-            model_name = selected_model
-
-    st.markdown("---")
+    # 彻底移除了极客向的 ⚙️ 接口常规设置 菜单，实现“小白打开即用”的清爽感
     
     st.markdown("#### 📝 框架生成：提示词配置")
     with st.popover("✍️ 设置：框架主笔 Agent", use_container_width=True):
@@ -103,7 +98,7 @@ with st.sidebar:
         temp_fw_writer = st.text_area("提示词编辑区", value=st.session_state.sys_writer_prompt, label_visibility="collapsed", height=200)
         if st.button("💾 确认覆盖并保存", key="btn_fw_writer"):
             st.session_state.sys_writer_prompt = temp_fw_writer
-            st.success("✅ 修改成功！新灵魂已注入后台。")
+            st.success("✅ 修改成功！")
             
     with st.popover("🧐 设置：框架审核处长 Agent", use_container_width=True):
         st.markdown("**为挑刺的审核处长定制审核标准：**")
@@ -115,15 +110,15 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("#### 📝 智能润色：提示词配置")
-    with st.popover("✍️ 设置：润色分析师 Agent", use_container_width=True):
+    with st.popover("✍️ 设置：政研室润色主笔 ", use_container_width=True):
         st.markdown("**指导分析师如何针对原文挑错找茬：**")
         temp_pl_writer = st.text_area("提示词编辑区", value=st.session_state.sys_p_writer_prompt, label_visibility="collapsed", height=200)
         if st.button("💾 确认覆盖并保存", key="btn_pl_writer"):
             st.session_state.sys_p_writer_prompt = temp_pl_writer
             st.success("✅ 修改成功！")
 
-    with st.popover("🧐 设置：润色把关总监 Agent", use_container_width=True):
-        st.markdown("**为挑剔的总监设定高级审稿门槛：**")
+    with st.popover("🧐 设置：润色把关秘书长 ", use_container_width=True):
+        st.markdown("**为挑剔的秘书长设定高级审稿门槛：**")
         temp_pl_reviewer = st.text_area("提示词编辑区", value=st.session_state.sys_p_reviewer_prompt, label_visibility="collapsed", height=200)
         if st.button("💾 确认覆盖并保存", key="btn_pl_reviewer"):
             st.session_state.sys_p_reviewer_prompt = temp_pl_reviewer
@@ -138,10 +133,9 @@ with st.sidebar:
 
 
 # ==========================================
-# 核心公共函数：带打字机流式输出和阻塞请求
+# 核心公共函数
 # ==========================================
 def call_openai_api(sys_prompt, user_prompt):
-    """阻塞式调用：用于 Agent 在后台“互相吵架并产生中间件”的场合"""
     try:
         client = OpenAI(api_key=api_key, base_url=base_url)
         response = client.chat.completions.create(
@@ -158,7 +152,6 @@ def call_openai_api(sys_prompt, user_prompt):
         st.stop()
 
 def stream_openai_api(sys_prompt, user_prompt):
-    """【体验升级 3】：流式生成器，提供打字机效果。用于最终成稿阶段交付给用户"""
     try:
         client = OpenAI(api_key=api_key, base_url=base_url)
         stream = client.chat.completions.create(
@@ -184,8 +177,7 @@ def append_to_history(new_record):
 # ==========================================
 # 主界面布局
 # ==========================================
-st.title("公文写作智能助手 v7.0 🏛️")
-st.markdown("突破性架构：引入**无上下文漂移双向记忆体**、防刷新持久化常驻技术，并支持**流式长文本打字机出稿**体验。")
+st.title("公文写作智能助手 v8.0 🏛️")
 
 tab_framework, tab_polish, tab_history = st.tabs([
     "📍 需求一：框架生成", 
@@ -194,7 +186,7 @@ tab_framework, tab_polish, tab_history = st.tabs([
 ])
 
 # ===============================================================
-# 需求一：框架生成 (修复Context Drift + 防刷新 + 流式)
+# 需求一：框架生成
 # ===============================================================
 with tab_framework:
     st.header("👥 多Agent框架推敲系统")
@@ -204,8 +196,11 @@ with tab_framework:
     )
     
     if st.button("🚀 开始生成框架", type="primary"):
+        st.session_state.final_fw = "" 
+        
         if not api_key:
-            st.warning("⚠️ 请先填写 API Key！")
+            # 根据要求：友好的零基础管理员警告
+            st.warning("⚠️ 系统管理员尚未在云端配置 API Key，请联系开发者。")
         elif not draft_req.strip():
             st.warning("⚠️ 请先输入您的撰写需求！")
         else:
@@ -218,7 +213,6 @@ with tab_framework:
                     st.markdown(f"### 🔄 第 {i+1} 轮讨论")
                     
                     with st.spinner("✍️ 框架主笔 Agent 起草 / 修改..."):
-                        # 【核心修复 1】：上下文无论循环多少次，永远以“原始需求”这四个字做绝对锚定基点，防止 Drift 偏题！
                         if i == 0:
                             user_writer_prompt = f"【用户的最初撰写需求（绝对基准）】：\n{draft_req}\n\n请直接基于该需求撰写公文框架。"
                         else:
@@ -229,46 +223,42 @@ with tab_framework:
                         st.info(writer_output)
                         discussion_log.append(f"【第 {i+1} 轮 - 框架主笔】\n{writer_output}")
                     
-                    with st.spinner("🧐 框架审核 Agent 检查修正..."):
+                    with st.spinner("🧐 框架审核处长 检查修正..."):
                         user_reviewer_prompt = f"【用户最初提的需求】：\n{draft_req}\n\n【手下主笔交上来的框架】：\n{writer_output}\n\n请比对原需求进行严苛痛批，提出改进指令。"
                         
                         reviewer_output = call_openai_api(st.session_state.sys_reviewer_prompt, user_reviewer_prompt)
                         st.markdown("**🧐 框架审核处长批示：**")
                         st.warning(reviewer_output)
-                        discussion_log.append(f"【第 {i+1} 轮 - 框架审核】\n{reviewer_output}")
+                        discussion_log.append(f"【第 {i+1} 轮 - 处长】\n{reviewer_output}")
                     
-                    # 传承给下一轮主笔的信息包容留
                     current_context = f"【上一版你写的主笔原稿】\n{writer_output}\n\n【刚才处长的批评建议】\n{reviewer_output}"
                     
-            with st.spinner("✨ 讨论完毕，连接大模型拉取流式最终数据..."):
+            with st.spinner("✨ 讨论完毕，已开启无闪烁流式打字输出..."):
                 sys_final = st.session_state.sys_writer_prompt + " 你现在需要进行最终定稿输出，直接出纯净的文本结果，没有前缀也没有后缀。"
                 user_final = f"【回归用户定海神针需求】：\n{draft_req}\n\n【后台磨合素材】：\n{current_context}\n\n整理出一份大圆满框架定稿："
                 
-                st.markdown("### 📄 正在流式打字定稿中...")
-                # 【体验升级 3】：使用流式 st.write_stream 展现令人愉悦的生成过程
-                final_framework = st.write_stream(stream_openai_api(sys_final, user_final))
+                st.markdown("### 📄 最终定稿流注中...")
                 
-                # 【核心修复 2】：赋值完毕后立刻塞入 session_state ，然后 Rerun。这样不管怎么切网页，它都焊死在页面上！
-                st.session_state.final_fw = final_framework
+                final_framework_raw = st.write_stream(stream_openai_api(sys_final, user_final))
+                st.session_state.final_fw = final_framework_raw
+                
+                summary = draft_req[:15] + "..." if len(draft_req) > 15 else draft_req
                 
                 append_to_history({
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "task_type": "💡 框架生成多轮流式推敲",
+                    "task_type": f"💡 框架：{summary}",
                     "user_input": draft_req,
                     "process_log": "\n\n---\n\n".join(discussion_log),
-                    "final_output": final_framework
+                    "final_output": final_framework_raw
                 })
-                # 触发页面重绘，此时 st.button 区域走完，底部独立渲染块会展现
-                st.rerun()
 
-    # 【常驻防刷新的渲染块】
-    if st.session_state.final_fw:
+    elif st.session_state.final_fw:
         st.markdown("### 📄 最终定稿的公文范文框架")
         st.success(st.session_state.final_fw)
 
 
 # ===============================================================
-# 需求二：智能润色 (修复Context Drift + 防刷新 + 流式)
+# 需求二：智能润色
 # ===============================================================
 with tab_polish:
     st.header("✨ 人机协同智能润色")
@@ -278,21 +268,19 @@ with tab_polish:
         placeholder="把不满意的初稿文本粘贴在这里..."
     )
     
-    # 步骤一：AI 博弈出修改意见
     if st.button("💡 1. 生成修改方案", type="primary"):
-        if not api_key: st.warning("⚠️ 填写 API Key！")
+        if not api_key: st.warning("⚠️ 系统管理员尚未在云端配置 API Key，请联系开发者。")
         elif not original_text.strip(): st.warning("⚠️ 原始公文内容不能为空！")
         else:
             discussion_log = []
             
-            with st.expander("👀 查看 AI 润色博弈过程", expanded=True):
+            with st.expander("👀 查看 AI 政研室内部润色博弈过程", expanded=True):
                 current_context = ""
                 
                 for i in range(polish_rounds):
                     st.markdown(f"### 🔄 第 {i+1} 轮探讨")
                     
                     with st.spinner("✍️ 润色分析员 正在指出可以优化的方向..."):
-                        # 【核心修复 1】：强锚定被润色的原稿
                         if i == 0:
                             user_p_writer = f"【需要润色的原文绝对锚点】：\n{original_text}\n\n请指出具体需要优化的漏洞与改善点。"
                         else:
@@ -303,24 +291,23 @@ with tab_polish:
                         st.info(writer_output)
                         discussion_log.append(f"【第 {i+1} 轮 - 分析师】\n{writer_output}")
                     
-                    with st.spinner("🧐 润色总监 正在把关方案有效性..."):
+                    with st.spinner("🧐 润色秘书长 正在把关方案有效性..."):
                         user_p_reviewer = f"【被润色的原文】：\n{original_text}\n\n【手下上的修改呈报表】：\n{writer_output}\n\n请进行高标准的审问与打回要求。"
                         
                         reviewer_output = call_openai_api(st.session_state.sys_p_reviewer_prompt, user_p_reviewer)
-                        st.markdown("**🧐 润色总监批示：**")
+                        st.markdown("**🧐 润色秘书长批示：**")
                         st.warning(reviewer_output)
-                        discussion_log.append(f"【第 {i+1} 轮 - 总监】\n{reviewer_output}")
+                        discussion_log.append(f"【第 {i+1} 轮 - 秘书长】\n{reviewer_output}")
                     
-                    current_context = f"【你当时的呈上清单】\n{writer_output}\n\n【总监痛批的意见】\n{reviewer_output}"
+                    current_context = f"【你当时的呈上清单】\n{writer_output}\n\n【秘书长痛批的意见】\n{reviewer_output}"
             
             with st.spinner("✨ 整合汇总最终意见方案..."):
-                sys_final_suggest = "你是办公室秘书长。综合底下刚才讨论，输出一份最清晰有条理的【最终公文修改条款清单】。绝不废话。"
+                sys_final_suggest = "综合底下刚才讨论，输出一份最清晰有条理的【最终公文修改条款清单】。绝不废话。"
                 user_final_suggest = f"【必须紧扣原稿】：\n{original_text}\n\n【底下人的争吵记录】：\n{current_context}\n\n出具一锤定音的汇总修改清单："
                 
                 st.session_state.ai_suggestions = call_openai_api(sys_final_suggest, user_final_suggest)
                 st.success("✅ 多轮探讨结束自动填入下方人工审核区，供您检阅删减！")
 
-    # 步骤二与三：人工修改与流式洗稿
     if st.session_state.ai_suggestions:
         st.markdown("---")
         st.markdown("### 🧑‍💻 步骤二：人工审查与编辑 (您可以直接在此框内强行介入修改)")
@@ -332,31 +319,32 @@ with tab_polish:
         )
         
         if st.button("✨ 2. 执行最终彻头彻尾的流式润色洗稿！", type="primary"):
-            with st.spinner("🤖 出稿大师接入中...") :
-                sys_final_polish = st.session_state.sys_polish_prompt
-                user_final_polish = f"【绝对原始稿件区】：\n{original_text}\n\n【皇帝圣旨级别的修改强制命令区域】：\n{edited_suggestions}\n\n开始不掺杂废话的全文重构排版润色："
-                
-                st.markdown("### 📜 正在流式打字出稿中...")
-                # 【体验升级 3】采用高级打字机特效完成渲染
-                final_pl = st.write_stream(stream_openai_api(sys_final_polish, user_final_polish))
-                
-                # 【核心修复 2】缓存持久，防止页面刷新蒸发心血
-                st.session_state.final_pl = final_pl
-                
-                append_to_history({
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "task_type": "✒️ 两级流式深度修文",
-                    "user_input": original_text,
-                    "process_log": edited_suggestions,
-                    "final_output": final_pl
-                })
-                # 重刷页面
-                st.rerun()
+            st.session_state.final_pl = "" 
+            if not api_key:
+                st.warning("⚠️ 系统管理员尚未在云端配置 API Key，请联系开发者。")
+            else:
+                with st.spinner("🤖 出稿大师接入中...") :
+                    sys_final_polish = st.session_state.sys_polish_prompt
+                    user_final_polish = f"【绝对原始稿件区】：\n{original_text}\n\n【皇帝圣旨级别的修改强制命令区域】：\n{edited_suggestions}\n\n开始不掺杂废话的全文重构排版润色："
+                    
+                    st.markdown("### 📜 倾注精力的最终结晶打字生成中...")
+                    
+                    final_pl_raw = st.write_stream(stream_openai_api(sys_final_polish, user_final_polish))
+                    st.session_state.final_pl = final_pl_raw
+                    
+                    summary = original_text[:15] + "..." if len(original_text) > 15 else original_text
+                    
+                    append_to_history({
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "task_type": f"✒️ 润色：{summary}",
+                        "user_input": original_text,
+                        "process_log": edited_suggestions,
+                        "final_output": final_pl_raw
+                    })
 
-    # 【常驻防刷新的渲染块】
-    if st.session_state.final_pl:
-        st.markdown("### 📜 最终润色结晶纯净稿")
-        st.success(st.session_state.final_pl)
+        elif st.session_state.final_pl:
+            st.markdown("### 📜 最终润色结晶纯净稿")
+            st.success(st.session_state.final_pl)
 
 
 # ===============================================================
@@ -373,6 +361,6 @@ with tab_history:
                 st.markdown("#### 🔹 最初的需求与原稿")
                 st.info(record["user_input"])
                 st.markdown("#### 💬 定稿前的切磋磨合细节日志")
-                st.text(record.get("process_log", "无流转日志"))
+                st.text(record.get("process_log", "无流转细节日志"))
                 st.markdown("#### ⭐ 岁月留香的成品")
                 st.success(record["final_output"])
