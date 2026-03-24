@@ -67,15 +67,15 @@ if "history" not in st.session_state:
 
 # === 初始化全局 Agent 提示词 ===
 if "sys_writer_prompt" not in st.session_state:
-    st.session_state.sys_writer_prompt = "你是一名深谙中国大陆党政机关行文规范的资深‘笔杆子’（如省委办公厅综合处业务骨干）。你的任务是根据用户的需求，构建一份逻辑严密、层次清晰、政治站位高的公文提纲。要求：1. 严格使用标准公文层级序数（一、；（一）；1.；（1））。2. 提纲需具备‘起承转合’，包括背景意义、总体要求、核心举措、保障机制等（视具体文种而定）。3. 标题要对仗工整，用词规范、威严、准确。4. 禁止输出废话，直接给出提纲。"
+    st.session_state.sys_writer_prompt = "你是一名深谙中国大陆党政机关行文规范的资深‘笔杆子’。你的任务是起草或修改公文提纲。🚨【最高铁律】：无论进行到第几轮修改，你必须100%死死盯住用户的【最初撰写需求】，绝不允许自行发散主题、遗漏核心要点或脑补无关的业务内容！要求：1. 严格使用标准公文层级序数（一、；（一）；1.；（1））。2. 提纲需具备‘起承转合’。3. 标题要对仗工整，用词规范、威严。4. 直接输出提纲，严禁任何废话或前言后语。"
 if "sys_reviewer_prompt" not in st.session_state:
-    st.session_state.sys_reviewer_prompt = "你是一位极其严苛的机关审核处长，拥有20年公文把关经验。你需要对下属提交的公文框架进行‘挑刺’。审查标准：1. 政治方向是否有偏差或遗漏？2. 逻辑树是否符合MECE原则（不重不漏）？3. 举措是否过于空泛，缺乏落地抓手？4. 标题是否不够精炼有力？请直接列出致命缺陷和具体修改指令，语气要严厉、精炼，切忌替他重写全文。"
+    st.session_state.sys_reviewer_prompt = "你是一位极其严苛的机关审核处长。你需要对下属提交的公文框架进行‘挑刺’。🚨【一票否决权】：审查的第一步必须是【偏航审查】！严格比对用户的【最初撰写需求】，一旦发现框架偏题、漏掉原需求核心要素、或脑补了无中生有的幻觉内容，必须严厉驳回并强制要求退回原点！其他审查标准：1. 政治方向是否有偏差？2. 逻辑树是否符合MECE原则（不重不漏）？3. 举措是否过于空泛？请直接列出致命缺陷和具体修改指令，语气严厉精炼，切忌替他重写全文。"
 if "sys_p_writer_prompt" not in st.session_state:
-    st.session_state.sys_p_writer_prompt = "你是机关政研室的公文润色主笔。请对用户提供的公文初稿进行深度诊断。你需要精准指出以下问题：1. 存在口语化、大白话表达的地方；2. 逻辑断层或转折生硬之处；3. 缺乏理论深度和高度的地方。请严格以清单形式（1. 2. 3.）列出详细的修改建议条款，建议需具体到某一段、某一句的词汇替换方向，暂不需要重写全文。"
+    st.session_state.sys_p_writer_prompt = "你是机关政研室的公文润色主笔。请对用户提供的公文初稿进行深度诊断。🚨【事实锚定铁律】：你的所有修改建议必须严格且唯一地基于【被润色的原文】，绝不允许脑补原文中根本不存在的情节、数据，或擅自添加与原文意图无关的新观点！你需要精准指出：1. 存在的口语化、大白话表达；2. 逻辑断层或转折生硬之处；3. 缺乏理论深度的地方。请严格以清单形式（1. 2. 3.）列出详细的修改建议条款，建议需具体到某一段某一句，暂不重写全文。"
 if "sys_p_reviewer_prompt" not in st.session_state:
-    st.session_state.sys_p_reviewer_prompt = "你是负责最终签批的秘书长。你需要审阅润色主笔提交的《修改建议清单》。请以宏观视野和高标准把关：1. 严厉驳回清单中无关痛痒、流于表面的修改；2. 指出清单中不够具有‘体制内气韵’的建议；3. 补充你认为必须拔高和深挖的核心修改意见。用词要高屋建瓴，一针见血，直指要害。"
+    st.session_state.sys_p_reviewer_prompt = "你是负责最终签批的秘书长。你需要审阅润色主笔提交的《修改建议清单》。🚨【事实核查铁律】：请严格比对原始文稿，揪出清单中任何试图‘无中生有’、篡改原文核心事实、或擅自加戏的修改建议，直接毙掉！你的高标准把关要求：1. 严厉驳回清单中无关痛痒的修改；2. 指出清单中不够具有‘体制内气韵’的建议；3. 补充你认为必须拔高的核心意见。用词要高屋建瓴，一针见血，直指要害。"
 if "sys_polish_prompt" not in st.session_state:
-    st.session_state.sys_polish_prompt = "你是公文排版与出稿校验大师。请严格按照用户确认的《修改最终指令》，对原始初稿进行彻底的重构与深度润色。要求：1. 坚决执行所有修改指令，极大提升词汇的公文属性（如适时使用‘压实责任’、‘统筹推进’、‘抓好落实’等体制内规范表述）。2. 确保全文行云流水，气势磅礴，逻辑严密。3. 绝对禁止输出任何解释性废话（如‘好的’、‘修改如下’），直接、且仅输出最终排版好的正文纯文本。"
+    st.session_state.sys_polish_prompt = "你是公文排版与出稿校验大师。请严格按照用户确认的《修改最终指令》，对原始初稿进行彻底的重构与深度润色。🚨【防幻觉铁律】：你只能在原稿既定事实的基础上进行词汇和句式的升维升级，绝对禁止在最终成稿中添加原稿及指令中未提及的虚构事件、虚构数据或虚假政策！要求：1. 坚决执行所有修改指令，极大提升词汇的公文属性（适时使用‘压实责任’、‘统筹推进’、‘抓好落实’等体制内规范表述）。2. 确保全文行云流水，气势磅礴。3. 绝对禁止输出任何解释性废话，直接、且仅输出最终排版好的纯文本正文。"
 
 
 # ==========================================
@@ -85,8 +85,8 @@ with st.sidebar:
     st.markdown("### 欢迎使用公文助手")
     
     st.markdown("#### 🔄 Agent 讨论轮数设置")
-    discuss_rounds = st.selectbox("框架生成轮数：", options=list(range(1, 11)), index=0)
-    polish_rounds = st.selectbox("智能润色轮数：", options=list(range(1, 11)), index=1)
+    discuss_rounds = st.selectbox("框架生成轮数：", options=list(range(1, 6)), index=0)
+    polish_rounds = st.selectbox("智能润色轮数：", options=list(range(1, 6)), index=1)
     
     st.markdown("---")
     
@@ -144,7 +144,7 @@ def call_openai_api(sys_prompt, user_prompt):
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.7
+            temperature=0.2  # 后台讨论低温：压制发散，确保严谨不跑偏
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -160,7 +160,7 @@ def stream_openai_api(sys_prompt, user_prompt):
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.7,
+            temperature=0.5,  # 最终出稿中温：兼顾流畅度与可控性
             stream=True
         )
         for chunk in stream:
@@ -216,7 +216,8 @@ with tab_framework:
                         if i == 0:
                             user_writer_prompt = f"【用户的最初撰写需求（绝对基准）】：\n{draft_req}\n\n请直接基于该需求撰写公文框架。"
                         else:
-                            user_writer_prompt = f"【用户的最初撰写需求（绝对基准不能偏听偏信）】：\n{draft_req}\n\n【前序讨论与处长批评意见】：\n{current_context}\n\n请吸取处长意见继续修改出新框架，但内容绝不可偏离原始需求主题。"
+                            # 【三明治防遗忘结构】：将用户原始需求放在最后面（大模型对末尾指令的执行力最强）
+                            user_writer_prompt = f"【前序处长批评意见】：\n{current_context}\n\n🚨【用户的最初撰写需求（最高行动纲领）】：\n{draft_req}\n\n指令：请吸取批评意见进行修改。警告：修改后的框架必须100%涵盖上方【最初撰写需求】，绝不允许自行发散、遗漏核心要点或添加无关内容！"
                         
                         writer_output = call_openai_api(st.session_state.sys_writer_prompt, user_writer_prompt)
                         st.markdown("**✍️ 框架主笔 Agent 产出：**")
@@ -284,7 +285,8 @@ with tab_polish:
                         if i == 0:
                             user_p_writer = f"【需要润色的原文绝对锚点】：\n{original_text}\n\n请指出具体需要优化的漏洞与改善点。"
                         else:
-                            user_p_writer = f"【需要润色的原文绝对锚点】：\n{original_text}\n\n【你上次输出的方案与总监批语】：\n{current_context}\n\n请死死盯住原稿语义，结合总监批示重新改进修改清单。"
+                            # 【三明治防遗忘结构】：将原文锚点放在最后面，强制模型回溯事实源
+                            user_p_writer = f"【总监的打回批示】：\n{current_context}\n\n🚨【需要润色的原文绝对锚点（你的唯一事实来源）】：\n{original_text}\n\n指令：请结合批示改进修改清单。警告：所有修改建议必须严格基于【原文绝对锚点】的语义，绝不允许脑补原文中不存在的情节或数据！"
                         
                         writer_output = call_openai_api(st.session_state.sys_p_writer_prompt, user_p_writer)
                         st.markdown("**✍️ 润色分析员意见：**")
